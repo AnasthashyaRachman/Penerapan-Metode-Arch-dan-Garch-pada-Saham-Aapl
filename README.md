@@ -1,0 +1,1 @@
+# Penerapan-Metode-Arch-dan-Garch-pada-Saham-Aapl
