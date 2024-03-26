@@ -1,0 +1,171 @@
+---
+title: "Penerapan ARCH dan GARCH pada Data Saham Appl"
+author: "Kelompok 5"
+date: "2023-11-30"
+output: word_document 
+---
+## KELOMPOK 5 
+### 1. ANASTHASHYA RACHMAN (121450013)
+### 2. A Rafi Paringgom Iwari (121450039)
+### 3. Evan Aryaputra (121450102)
+### 4. Ari Sigit (121450069)
+
+## PEMODELAN ARCH
+```{r}
+library(ggplot2)
+library(zoo)
+library(quantmod)
+library(xts)
+library(PerformanceAnalytics)
+library(rugarch)
+library(forecast)
+library(aTSA)
+library(TSA)
+library(FinTS)
+library(fGarch)
+```
+
+```{r}
+getSymbols("AAPL",from = "2018-01-01",to = "2023-10-31")
+```
+
+```{r}
+chartSeries(AAPL)
+```
+
+```{r}
+lreturn <- AAPL$AAPL.Close
+lreturn<- na.omit(lreturn)
+return <- CalculateReturns(AAPL$AAPL.Close)
+return <- return[-1]
+return<- na.omit(return)
+```
+
+```{r}
+autoplot(return)
+```
+
+# Cek stasioner data
+
+```{r}
+adf.test(return)
+```
+
+pvalue \< 0.05 maka data sudah stasione
+
+```{r}
+acf(return)
+
+```
+
+```{r}
+pacf(return)
+```
+
+```{r}
+auto.arima(return)
+```
+
+```{r}
+ArchTest(AAPL$AAPL.Close)
+```
+
+Karena dari p-value \< 0.05 maka model memiliki efek ARCH
+
+```{r}
+#AR(1)
+model1 <- garchFit( ~arma(0,1)+garch(1,0), data=return, trace=FALSE)
+summary(model1)
+```
+
+```{r}
+#AR(2)
+model2 <- garchFit( ~arma(0,1)+garch(2,0), data=return, trace=FALSE)
+summary(model2)
+```
+
+```{r}
+#AR(3)
+model3 <- garchFit( ~arma(0,1)+garch(3,0), data=return, trace=FALSE)
+summary(model3)
+```
+
+```{r}
+#AR(4)
+model4 <- garchFit( ~arma(0,1)+garch(4,0), data=return, trace=FALSE)
+summary(model4)
+```
+
+Dipilih model terbaik ar(4)
+
+```{r}
+resid_1 = residuals(model4)
+qqnorm(resid_1)
+qqline(resid_1, col = 'red')
+```
+
+# Forecast dengan ar(4)
+
+```{r}
+prediksi = predict(model4, n.ahead= 30, plot = T)
+prediksi
+```
+
+```{r}
+library(fGarch)
+```
+
+## PEMODELAN GARCH
+```{r}
+# pemodelan garch yang diremomendasikan 
+#MA(1)
+model_garch <- garchFit( ~arma(0,1)+garch(1,1), data=return, trace=FALSE)
+summary(model_garch)
+```
+
+```{r}
+prediksi = predict(model_garch, n.ahead= 30, plot = T)
+prediksi
+```
+
+```{r}
+# Peramalan
+garchSpec <- ugarchspec(
+  variance.model=list(model="sGARCH",
+                      garchOrder=c(1,0)),
+  mean.model=list(armaOrder=c(0,1)),
+  distribution.model="std")
+garchFitt <- ugarchfit(spec=garchSpec, data=return)
+```
+
+```{r}
+forc<- ugarchforecast(fitORspec = garchFitt, data = AAPL$Close, n.ahead = 20, n.roll = 0)
+plot(forc, which= 1)
+```
+
+hasil peramalan menunjukan rentang data dari 1 november hingga 20 november warna kuning menunjukan batas varians peramalan dan garis berwarna merah menunjukan data hasil peramalan.
+
+```{r}
+getSymbols("AAPL",from = "2023-11-1",to = "2023-12-1")
+lreturn <- AAPL$AAPL.Close
+lreturn<- na.omit(lreturn)
+return <- CalculateReturns(AAPL$AAPL.Close)
+return <- return[-1]
+return<- na.omit(return)
+```
+
+```{r}
+hasil.forc.Diff <- forc@forecast$seriesFor[,1]
+hasil <- diffinv(hasil.forc.Diff, differences = 1)
+```
+
+```{r}
+perbandingan <- data.frame("Aktual"= return$AAPL.Close,
+                           "Ramalan" = hasil[-1])
+perbandingan
+```
+
+```{r}
+library("MLmetrics")
+MAPE(perbandingan$AAPL.Close,perbandingan$Ramalan)
+```
